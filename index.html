@@ -472,7 +472,7 @@
   "use strict";
 
   const APP_NAME = "Lagrange Points";
-  const SOFTEN = 1e-5;
+  const SINGULARITY_EPS = 1e-15;
   const ARROW_SCALE = 0.52;
   const POINT_RADIUS = 7;
   const PCT_MIN = 0.0001;
@@ -485,7 +485,7 @@
   const ACTIVE_WINDOW_MS = 900;
   const IDLE_FPS = 8;
   const NEAR_BODY_WARN_DIST = 0.05;
-  const LPOINT_RESIDUAL_TOL = 5e-3;
+  const LPOINT_RESIDUAL_TOL = 1e-8;
   const MOBILE_MEDIA_QUERY = "(max-width: 980px) and (hover: none) and (pointer: coarse)";
 
   const PALETTE = {
@@ -612,9 +612,10 @@
   }
 
   function gravAcc(mass, dx, dy) {
-    const r2 = dx * dx + dy * dy + SOFTEN;
-    const r = Math.sqrt(r2);
-    const invR3 = 1.0 / (r2 * r);
+    const r2 = dx * dx + dy * dy;
+    const r2Safe = Math.max(r2, SINGULARITY_EPS);
+    const r = Math.sqrt(r2Safe);
+    const invR3 = 1.0 / (r2Safe * r);
     return [-mass * dx * invR3, -mass * dy * invR3];
   }
 
@@ -1181,7 +1182,7 @@
   }
 
   function drawNearMassWarning() {
-    const message = "Near a body: force arrows are softened.";
+    const message = "Near a body: vectors can become very large";
     const font = "600 12px \"Avenir Next\", \"Segoe UI\", \"Trebuchet MS\", sans-serif";
     const padX = 14;
     const padY = 8;
