@@ -1,0 +1,1361 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lagrange Explorer MVP</title>
+  <style>
+    :root {
+      --bg-top: #060d16;
+      --bg-bottom: #101d30;
+      --panel: rgba(15, 26, 42, 0.86);
+      --panel-border: rgba(84, 111, 146, 0.65);
+      --panel-shadow: rgba(0, 0, 0, 0.35);
+      --text: #ebf2ff;
+      --muted: #b4c3d8;
+      --subtle: #8598b1;
+      --accent: #66a8ff;
+      --grid: #203149;
+      --axis: #4a637f;
+      --sun: #ffd467;
+      --earth: #6caeff;
+      --bary: #f6f9ff;
+      --line-se: #788eae;
+      --particle: #ffffff;
+      --g-sun: #ffca5e;
+      --g-earth: #6fb6ff;
+      --c-centrifugal: #f59652;
+      --sum: #75f2a6;
+      --lagrange: #ff8fbe;
+      --warning: #ff7272;
+      --ok: #6ce7a8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-top);
+      color: var(--text);
+      font-family: "Avenir Next", "Segoe UI", "Trebuchet MS", "Noto Sans", sans-serif;
+      letter-spacing: 0.01em;
+    }
+
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      isolation: isolate;
+    }
+
+    #scene {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+    }
+
+    #hud {
+      position: absolute;
+      inset: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 12px;
+      pointer-events: none;
+      z-index: 15;
+    }
+
+    body.panels-hidden #hud {
+      display: none;
+    }
+
+    #panel-toggle {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 30;
+      min-width: 132px;
+      pointer-events: auto;
+      background: rgba(20, 37, 59, 0.86);
+      border-color: rgba(122, 158, 201, 0.74);
+    }
+
+    .panel {
+      width: min(360px, calc(100vw - 28px));
+      pointer-events: auto;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 12px 14px;
+      box-shadow: 0 10px 24px var(--panel-shadow);
+      backdrop-filter: blur(6px);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      margin: 7px 0 11px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .control-group + .control-group {
+      margin-top: 12px;
+    }
+
+    label {
+      font-size: 12px;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      min-height: 40px;
+      margin: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+      touch-action: pan-y;
+    }
+
+    .range-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 5px;
+      color: var(--subtle);
+      font-size: 11px;
+    }
+
+    .range-value {
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .default-mass-note {
+      margin: 7px 0 0;
+      padding: 7px 8px;
+      border: 1px solid rgba(108, 154, 218, 0.55);
+      border-radius: 8px;
+      background: rgba(29, 52, 83, 0.55);
+      color: #d4e6ff;
+      font-size: 11px;
+      line-height: 1.32;
+    }
+
+    .default-mass-note.hidden {
+      display: none;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    button {
+      min-height: 40px;
+      border: 1px solid rgba(109, 141, 180, 0.7);
+      border-radius: 10px;
+      background: rgba(44, 67, 98, 0.6);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 120ms ease;
+    }
+
+    button:hover {
+      background: rgba(57, 84, 120, 0.8);
+    }
+
+    button:active {
+      background: rgba(46, 72, 104, 0.88);
+    }
+
+    .secondary-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .toggle-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      border: 1px solid rgba(98, 128, 165, 0.4);
+      border-radius: 10px;
+      padding: 0 10px;
+      color: var(--muted);
+      font-size: 12px;
+      background: rgba(28, 44, 66, 0.48);
+      user-select: none;
+    }
+
+    .toggle-item input {
+      width: 17px;
+      height: 17px;
+      margin: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+      flex: none;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 12px;
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 22px;
+    }
+
+    .swatch {
+      width: 20px;
+      height: 4px;
+      border-radius: 999px;
+      flex: none;
+    }
+
+    .swatch.gsun { background: var(--g-sun); }
+    .swatch.gearth { background: var(--g-earth); }
+    .swatch.centrifugal { background: var(--c-centrifugal); }
+    .swatch.sum { background: var(--sum); }
+    .swatch.orbit-sun-earth {
+      background: repeating-linear-gradient(
+        90deg,
+        #ffde8a 0 2px,
+        transparent 2px 6px
+      );
+    }
+    .swatch.orbit-cm-earth {
+      background: repeating-linear-gradient(
+        90deg,
+        #9fd7ff 0 10px,
+        transparent 10px 16px
+      );
+    }
+
+    .panel-title {
+      margin: 0 0 8px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 24px;
+      border-bottom: 1px solid rgba(104, 130, 163, 0.25);
+      padding: 3px 0;
+    }
+
+    .stat-row:last-of-type {
+      border-bottom: none;
+    }
+
+    .stat-key {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .stat-value {
+      color: var(--text);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      overflow-wrap: anywhere;
+      max-width: 60%;
+    }
+
+    .ok {
+      color: var(--ok);
+    }
+
+    .warning {
+      margin-top: 8px;
+      padding: 7px 8px;
+      border: 1px solid rgba(255, 121, 121, 0.65);
+      border-radius: 8px;
+      color: #ffd5d5;
+      background: rgba(130, 33, 33, 0.45);
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    .warning.hidden {
+      display: none;
+    }
+
+    #help {
+      font-size: 11px;
+      color: var(--subtle);
+      line-height: 1.45;
+    }
+
+    #help strong {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    @media (max-width: 980px) {
+      #panel-toggle {
+        top: 10px;
+        left: 10px;
+      }
+
+      #hud {
+        inset: 10px;
+        align-items: stretch;
+        justify-content: flex-end;
+      }
+
+      .panel {
+        width: auto;
+      }
+
+      .toggle-grid,
+      .button-row,
+      .secondary-row,
+      .legend {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <canvas id="scene" aria-label="Lagrange points force explorer"></canvas>
+  <button id="panel-toggle" type="button" aria-controls="hud" aria-expanded="true">Hide Panels</button>
+
+  <div id="hud">
+    <section class="panel" id="controls">
+      <h1 id="app-title">Lagrange Explorer</h1>
+      <p class="subtitle">Sun and Earth are fixed in a rotating frame. Move the white point and inspect force vectors.</p>
+
+      <div class="control-group">
+        <label for="mass-slider">Earth mass (% of Sun mass)</label>
+        <input id="mass-slider" type="range" min="0" max="1" step="0.0001">
+        <div class="range-meta">
+          <span>0.0001%</span>
+          <span id="mass-value" class="range-value">25%</span>
+          <span>50%</span>
+        </div>
+        <p id="default-mass-note" class="default-mass-note">Note: for easier visual interpretation, the default Earth mass is intentionally increased to 25% of the Sun mass.</p>
+      </div>
+
+      <div class="control-group button-row">
+        <button id="preset-earth" type="button">Earth</button>
+        <button id="preset-jupiter" type="button">Jupiter</button>
+      </div>
+
+      <div class="control-group secondary-row">
+        <button id="lock-button" type="button">Particle: Tracking</button>
+        <button id="reset-button" type="button">Reset State</button>
+      </div>
+
+      <div class="control-group toggle-grid">
+        <label class="toggle-item" for="toggle-gsun"><input id="toggle-gsun" type="checkbox" checked>g from Sun</label>
+        <label class="toggle-item" for="toggle-gearth"><input id="toggle-gearth" type="checkbox" checked>g from Earth</label>
+        <label class="toggle-item" for="toggle-cf"><input id="toggle-cf" type="checkbox" checked>Centrifugal</label>
+        <label class="toggle-item" for="toggle-sum"><input id="toggle-sum" type="checkbox" checked>Vector sum</label>
+        <label class="toggle-item" for="toggle-lpoints"><input id="toggle-lpoints" type="checkbox" checked>Lagrange points</label>
+        <label class="toggle-item" for="toggle-grid"><input id="toggle-grid" type="checkbox" checked>Grid</label>
+        <label class="toggle-item" for="toggle-orbit-sun-earth"><input id="toggle-orbit-sun-earth" type="checkbox" checked>Orbit (Sun-Earth)</label>
+        <label class="toggle-item" for="toggle-orbit-cm-earth"><input id="toggle-orbit-cm-earth" type="checkbox" checked>Orbit (CM-Earth)</label>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><span class="swatch gsun"></span><span>g_sun</span></div>
+        <div class="legend-item"><span class="swatch gearth"></span><span>g_earth</span></div>
+        <div class="legend-item"><span class="swatch centrifugal"></span><span>centrifugal</span></div>
+        <div class="legend-item"><span class="swatch sum"></span><span>sum</span></div>
+        <div class="legend-item"><span class="swatch orbit-sun-earth"></span><span>Sun-Earth orbit (dotted)</span></div>
+        <div class="legend-item"><span class="swatch orbit-cm-earth"></span><span>CM-Earth orbit (dashed)</span></div>
+      </div>
+    </section>
+
+    <section class="panel" id="help">
+      <strong>Hotkeys:</strong> 1/2/3/4 toggle vectors, L toggle L-points, G toggle grid, Space lock/unlock particle, E Earth preset, J Jupiter preset, R reset. Tap/click canvas to toggle lock. Orbit styles: Sun-Earth dotted, CM-Earth dashed.
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const APP_NAME = "Lagrange Explorer";
+  const APP_TITLE_SUFFIX = "MVP";
+  const SOFTEN = 1e-5;
+  const ARROW_SCALE = 0.52;
+  const POINT_RADIUS = 7;
+  const PCT_MIN = 0.0001;
+  const PCT_MAX = 50.0;
+  const DEFAULT_MASS_PERCENT = 25.0;
+  const EARTH_PRESET = 0.0003003;
+  const JUPITER_PRESET = 0.095;
+  const SCALE_FACTOR = 0.34;
+  const ACTIVE_WINDOW_MS = 900;
+  const IDLE_FPS = 8;
+  const NEAR_BODY_WARN_DIST = 0.05;
+  const LPOINT_RESIDUAL_TOL = 5e-3;
+
+  const PALETTE = {
+    bgTop: "#060d16",
+    bgBottom: "#101d30",
+    grid: "#203149",
+    axis: "#4a637f",
+    text: "#ebf2ff",
+    muted: "#b4c3d8",
+    subtle: "#8598b1",
+    sun: "#ffd467",
+    earth: "#6caeff",
+    bary: "#f6f9ff",
+    lineSE: "#788eae",
+    particle: "#ffffff",
+    gSun: "#ffca5e",
+    gEarth: "#6fb6ff",
+    centrifugal: "#f59652",
+    sum: "#75f2a6",
+    lagrange: "#ff8fbe",
+    warningBg: "rgba(130, 33, 33, 0.7)",
+    warningBorder: "rgba(255, 121, 121, 0.85)",
+    warningText: "#ffd5d5"
+  };
+
+  const canvas = document.getElementById("scene");
+  const ctx = canvas.getContext("2d");
+
+  const dom = {
+    appTitle: document.getElementById("app-title"),
+    hud: document.getElementById("hud"),
+    controlsPanel: document.getElementById("controls"),
+    helpPanel: document.getElementById("help"),
+    panelToggle: document.getElementById("panel-toggle"),
+    massSlider: document.getElementById("mass-slider"),
+    massValue: document.getElementById("mass-value"),
+    defaultMassNote: document.getElementById("default-mass-note"),
+    presetEarth: document.getElementById("preset-earth"),
+    presetJupiter: document.getElementById("preset-jupiter"),
+    resetButton: document.getElementById("reset-button"),
+    lockButton: document.getElementById("lock-button"),
+    toggles: {
+      gSun: document.getElementById("toggle-gsun"),
+      gEarth: document.getElementById("toggle-gearth"),
+      centrifugal: document.getElementById("toggle-cf"),
+      sum: document.getElementById("toggle-sum"),
+      lPoints: document.getElementById("toggle-lpoints"),
+      grid: document.getElementById("toggle-grid"),
+      orbitSunEarth: document.getElementById("toggle-orbit-sun-earth"),
+      orbitCmEarth: document.getElementById("toggle-orbit-cm-earth")
+    }
+  };
+
+  function createDefaultState() {
+    return {
+      massPercent: DEFAULT_MASS_PERCENT,
+      mu: pctToMu(DEFAULT_MASS_PERCENT),
+      particle: {
+        x: 0.5,
+        y: Math.sqrt(3) / 2,
+        locked: false
+      },
+      visibility: {
+        gSun: true,
+        gEarth: true,
+        centrifugal: true,
+        sum: true,
+        lPoints: true,
+        grid: true,
+        orbitSunEarth: true,
+        orbitCmEarth: true
+      },
+      pointer: {
+        x: 0,
+        y: 0,
+        hasPosition: false
+      },
+      render: {
+        dirty: true,
+        lastActive: performance.now(),
+        lastFrame: 0,
+        lastIdleFrame: 0
+      },
+      viewport: {
+        width: 1,
+        height: 1,
+        dpr: 1,
+        scale: 1,
+        centerX: 0.5,
+        centerY: 0.5,
+        reservedRightPx: 0
+      },
+      ui: {
+        panelsVisible: true
+      },
+      cache: {
+        systemMassPercent: NaN,
+        system: null
+      }
+    };
+  }
+
+  const state = createDefaultState();
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function vecLen(v) {
+    return Math.hypot(v[0], v[1]);
+  }
+
+  function vecAdd(a, b) {
+    return [a[0] + b[0], a[1] + b[1]];
+  }
+
+  function pctToMu(pct) {
+    const q = pct / 100.0;
+    return q / (1.0 + q);
+  }
+
+  function gravAcc(mass, dx, dy) {
+    const r2 = dx * dx + dy * dy + SOFTEN;
+    const r = Math.sqrt(r2);
+    const invR3 = 1.0 / (r2 * r);
+    return [-mass * dx * invR3, -mass * dy * invR3];
+  }
+
+  function centrifugalAcc(x, y) {
+    return [x, y];
+  }
+
+  function fColinear(x, mu) {
+    const m1 = 1.0 - mu;
+    const m2 = mu;
+    const x1 = -mu;
+    const x2 = 1.0 - mu;
+    const r1 = x - x1;
+    const r2 = x - x2;
+
+    function term(m, r) {
+      const a = Math.abs(r);
+      return m * r / (a * a * a + 1e-18);
+    }
+
+    return x - term(m1, r1) - term(m2, r2);
+  }
+
+  function bisectRoot(mu, a, b, iterations = 80) {
+    let fa = fColinear(a, mu);
+    let fb = fColinear(b, mu);
+    if (fa === 0) return a;
+    if (fb === 0) return b;
+    if (fa * fb > 0) return null;
+
+    let lo = a;
+    let hi = b;
+    let flo = fa;
+
+    for (let i = 0; i < iterations; i += 1) {
+      const mid = 0.5 * (lo + hi);
+      const fm = fColinear(mid, mu);
+      if (flo * fm <= 0) {
+        hi = mid;
+        fb = fm;
+      } else {
+        lo = mid;
+        flo = fm;
+      }
+    }
+
+    return 0.5 * (lo + hi);
+  }
+
+  function computeLPoints(mu) {
+    const points = {};
+    const x1 = -mu;
+    const x2 = 1.0 - mu;
+    const eps = 1e-5;
+
+    const l1x = bisectRoot(mu, x1 + eps, x2 - eps);
+    if (l1x !== null) {
+      points.L1 = [l1x, 0.0];
+    }
+
+    {
+      let a = x2 + eps;
+      let b = x2 + 5.0;
+      for (let i = 0; i < 20; i += 1) {
+        if (fColinear(a, mu) * fColinear(b, mu) <= 0) {
+          const l2x = bisectRoot(mu, a, b);
+          if (l2x !== null) points.L2 = [l2x, 0.0];
+          break;
+        }
+        b *= 2;
+      }
+    }
+
+    {
+      let b = x1 - eps;
+      let a = x1 - 5.0;
+      for (let i = 0; i < 20; i += 1) {
+        if (fColinear(a, mu) * fColinear(b, mu) <= 0) {
+          const l3x = bisectRoot(mu, a, b);
+          if (l3x !== null) points.L3 = [l3x, 0.0];
+          break;
+        }
+        a *= 2;
+      }
+    }
+
+    points.L4 = [0.5 - mu, Math.sqrt(3) / 2];
+    points.L5 = [0.5 - mu, -Math.sqrt(3) / 2];
+    return points;
+  }
+
+  function normFromValue(value) {
+    const lv = Math.log10(clamp(value, PCT_MIN, PCT_MAX));
+    const lmin = Math.log10(PCT_MIN);
+    const lmax = Math.log10(PCT_MAX);
+    return (lv - lmin) / (lmax - lmin);
+  }
+
+  function valueFromNorm(t) {
+    const clamped = clamp(t, 0, 1);
+    const lmin = Math.log10(PCT_MIN);
+    const lmax = Math.log10(PCT_MAX);
+    const lv = lmin + clamped * (lmax - lmin);
+    return 10 ** lv;
+  }
+
+  function worldToScreen(x, y) {
+    return [
+      state.viewport.centerX + x * state.viewport.scale,
+      state.viewport.centerY - y * state.viewport.scale
+    ];
+  }
+
+  function screenToWorld(sx, sy) {
+    return [
+      (sx - state.viewport.centerX) / state.viewport.scale,
+      -(sy - state.viewport.centerY) / state.viewport.scale
+    ];
+  }
+
+  function toCanvasCssPoint(event) {
+    const rect = canvas.getBoundingClientRect();
+    return [event.clientX - rect.left, event.clientY - rect.top];
+  }
+
+  function isEditable(target) {
+    if (!(target instanceof HTMLElement)) return false;
+    const tag = target.tagName;
+    return target.isContentEditable || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+  }
+
+  function formatNumber(value, significantDigits = 6) {
+    if (!Number.isFinite(value)) return "n/a";
+    if (value === 0) return "0";
+    const abs = Math.abs(value);
+    if (abs >= 1e5 || abs < 1e-3) return value.toExponential(3);
+    return Number(value.toPrecision(significantDigits)).toString();
+  }
+
+  function setMassPercent(value) {
+    state.massPercent = clamp(value, PCT_MIN, PCT_MAX);
+    state.mu = pctToMu(state.massPercent);
+    state.cache.systemMassPercent = NaN;
+    syncUiFromState();
+    markActive(true);
+  }
+
+  function setVisibility(key, value) {
+    if (!(key in state.visibility)) return;
+    state.visibility[key] = Boolean(value);
+    syncUiFromState();
+    markActive(true);
+  }
+
+  function toggleLock() {
+    state.particle.locked = !state.particle.locked;
+    syncUiFromState();
+    markActive(true);
+  }
+
+  function isDesktopLayout() {
+    return window.innerWidth > 980;
+  }
+
+  function computeReservedRightPx() {
+    if (!state.ui.panelsVisible || !isDesktopLayout()) {
+      return 0;
+    }
+
+    const panelRects = [dom.controlsPanel, dom.helpPanel]
+      .map((panel) => panel.getBoundingClientRect())
+      .filter((rect) => rect.width > 0 && rect.height > 0);
+
+    if (panelRects.length === 0) {
+      return 0;
+    }
+
+    let maxPanelWidth = 0;
+    let maxRightGap = 0;
+    for (const rect of panelRects) {
+      maxPanelWidth = Math.max(maxPanelWidth, rect.width);
+      maxRightGap = Math.max(maxRightGap, state.viewport.width - rect.right);
+    }
+
+    return Math.max(0, maxPanelWidth + maxRightGap);
+  }
+
+  function updateViewportCenter() {
+    const reservedRightPx = computeReservedRightPx();
+    state.viewport.reservedRightPx = reservedRightPx;
+    state.viewport.centerX = (state.viewport.width - reservedRightPx) * 0.5;
+    state.viewport.centerY = state.viewport.height * 0.5;
+  }
+
+  function applyPanelsVisibility() {
+    document.body.classList.toggle("panels-hidden", !state.ui.panelsVisible);
+    dom.panelToggle.textContent = state.ui.panelsVisible ? "Hide Panels" : "Show Panels";
+    dom.panelToggle.setAttribute("aria-expanded", String(state.ui.panelsVisible));
+  }
+
+  function setPanelsVisible(visible) {
+    const nextVisible = Boolean(visible);
+    if (state.ui.panelsVisible === nextVisible) {
+      applyPanelsVisibility();
+      updateViewportCenter();
+      markActive(true);
+      return;
+    }
+
+    state.ui.panelsVisible = nextVisible;
+    applyPanelsVisibility();
+    updateViewportCenter();
+    markActive(true);
+  }
+
+  function resetAppState() {
+    const fresh = createDefaultState();
+    state.massPercent = fresh.massPercent;
+    state.mu = fresh.mu;
+    state.particle = fresh.particle;
+    state.visibility = fresh.visibility;
+    state.pointer = fresh.pointer;
+    state.ui = fresh.ui;
+    state.render.dirty = true;
+    state.render.lastActive = performance.now();
+    state.cache.systemMassPercent = NaN;
+    syncUiFromState();
+    markActive(true);
+  }
+
+  function syncUiFromState() {
+    dom.massSlider.value = normFromValue(state.massPercent).toFixed(6);
+    dom.massValue.textContent = formatNumber(state.massPercent, 7) + "%";
+    const isDefaultMass = Math.abs(state.massPercent - DEFAULT_MASS_PERCENT) <= 1e-6;
+    dom.defaultMassNote.classList.toggle("hidden", !isDefaultMass);
+
+    for (const [key, element] of Object.entries(dom.toggles)) {
+      element.checked = state.visibility[key];
+    }
+
+    dom.lockButton.textContent = state.particle.locked ? "Particle: Locked" : "Particle: Tracking";
+    applyPanelsVisibility();
+    updateViewportCenter();
+  }
+
+  function markActive(dirty) {
+    state.render.lastActive = performance.now();
+    if (dirty) state.render.dirty = true;
+  }
+
+  function resizeCanvas() {
+    const width = Math.max(1, window.innerWidth);
+    const height = Math.max(1, window.innerHeight);
+    const dpr = clamp(window.devicePixelRatio || 1, 1, 2);
+
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    canvas.style.width = width + "px";
+    canvas.style.height = height + "px";
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    state.viewport.width = width;
+    state.viewport.height = height;
+    state.viewport.dpr = dpr;
+    state.viewport.scale = Math.max(90, SCALE_FACTOR * Math.min(width, height));
+    updateViewportCenter();
+
+    markActive(true);
+  }
+
+  function getSystemForCurrentMass() {
+    if (state.cache.systemMassPercent === state.massPercent && state.cache.system) {
+      return state.cache.system;
+    }
+
+    const mu = pctToMu(state.massPercent);
+    const system = {
+      mu,
+      mSun: 1.0 - mu,
+      mEarth: mu,
+      xSun: -mu,
+      ySun: 0.0,
+      xEarth: 1.0 - mu,
+      yEarth: 0.0,
+      lPoints: computeLPoints(mu)
+    };
+
+    state.mu = mu;
+    state.cache.systemMassPercent = state.massPercent;
+    state.cache.system = system;
+    return system;
+  }
+
+  function computeForces(system, x, y) {
+    const aSun = gravAcc(system.mSun, x - system.xSun, y - system.ySun);
+    const aEarth = gravAcc(system.mEarth, x - system.xEarth, y - system.yEarth);
+    const aCentrifugal = centrifugalAcc(x, y);
+    const aSum = vecAdd(vecAdd(aSun, aEarth), aCentrifugal);
+
+    return {
+      aSun,
+      aEarth,
+      aCentrifugal,
+      aSum,
+      dSun: Math.hypot(x - system.xSun, y - system.ySun),
+      dEarth: Math.hypot(x - system.xEarth, y - system.yEarth)
+    };
+  }
+
+  function drawText(text, x, y, color, size, weight) {
+    ctx.fillStyle = color;
+    ctx.font = (weight || 500) + " " + (size || 13) + "px \"Avenir Next\", \"Segoe UI\", \"Trebuchet MS\", sans-serif";
+    ctx.fillText(text, x, y);
+  }
+
+  function drawBackground() {
+    const grad = ctx.createLinearGradient(0, 0, 0, state.viewport.height);
+    grad.addColorStop(0, PALETTE.bgTop);
+    grad.addColorStop(1, PALETTE.bgBottom);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, state.viewport.width, state.viewport.height);
+  }
+
+  function drawGrid() {
+    if (!state.visibility.grid) return;
+
+    const targetPx = 92;
+    const base = targetPx / state.viewport.scale;
+    let step;
+    if (base <= 0) {
+      step = 1;
+    } else {
+      const p = 10 ** Math.floor(Math.log10(base));
+      step = 10 * p;
+      for (const m of [1, 2, 5, 10]) {
+        const candidate = m * p;
+        if (candidate * state.viewport.scale >= targetPx) {
+          step = candidate;
+          break;
+        }
+      }
+    }
+
+    const topLeft = screenToWorld(0, 0);
+    const bottomRight = screenToWorld(state.viewport.width, state.viewport.height);
+    const xLeft = topLeft[0];
+    const xRight = bottomRight[0];
+    const yHigh = topLeft[1];
+    const yLow = bottomRight[1];
+
+    ctx.lineWidth = 1;
+
+    let x = Math.floor(xLeft / step) * step;
+    while (x <= xRight) {
+      const screenX = worldToScreen(x, 0)[0];
+      const axis = Math.abs(x) < step * 1e-6;
+      ctx.strokeStyle = axis ? PALETTE.axis : PALETTE.grid;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(screenX) + 0.5, 0);
+      ctx.lineTo(Math.round(screenX) + 0.5, state.viewport.height);
+      ctx.stroke();
+      x += step;
+    }
+
+    let y = Math.floor(yLow / step) * step;
+    while (y <= yHigh) {
+      const screenY = worldToScreen(0, y)[1];
+      const axis = Math.abs(y) < step * 1e-6;
+      ctx.strokeStyle = axis ? PALETTE.axis : PALETTE.grid;
+      ctx.beginPath();
+      ctx.moveTo(0, Math.round(screenY) + 0.5);
+      ctx.lineTo(state.viewport.width, Math.round(screenY) + 0.5);
+      ctx.stroke();
+      y += step;
+    }
+  }
+
+  function drawDottedCircle(cx, cy, radius, color) {
+    if (radius < 2) return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.6;
+    ctx.lineCap = "round";
+    ctx.setLineDash([1, 8]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawDashedCircle(cx, cy, radius, color) {
+    if (radius < 2) return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([11, 8]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawOrbitSunEarth(system) {
+    if (!state.visibility.orbitSunEarth) return;
+    const sunPx = worldToScreen(system.xSun, system.ySun);
+    const radiusPx = state.viewport.scale * 1.0;
+    drawDottedCircle(sunPx[0], sunPx[1], radiusPx, "#ffde8a");
+  }
+
+  function drawOrbitCmEarth(system) {
+    if (!state.visibility.orbitCmEarth) return;
+    const baryPx = worldToScreen(0, 0);
+    const radiusPx = Math.abs(system.xEarth) * state.viewport.scale;
+    drawDashedCircle(baryPx[0], baryPx[1], radiusPx, "#9fd7ff");
+  }
+
+  function drawBodies(system) {
+    const sunPx = worldToScreen(system.xSun, system.ySun);
+    const earthPx = worldToScreen(system.xEarth, system.yEarth);
+    const baryPx = worldToScreen(0, 0);
+
+    ctx.strokeStyle = PALETTE.lineSE;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sunPx[0], sunPx[1]);
+    ctx.lineTo(earthPx[0], earthPx[1]);
+    ctx.stroke();
+
+    const sunRadius = clamp(12 + 7 * Math.sqrt(system.mSun / 0.5), 12, 24);
+    const earthRadius = clamp(7 + 28 * Math.sqrt(Math.max(system.mEarth, 1e-6)), 6, 20);
+
+    ctx.fillStyle = PALETTE.sun;
+    ctx.beginPath();
+    ctx.arc(sunPx[0], sunPx[1], sunRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#fff6d1";
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+
+    ctx.fillStyle = PALETTE.earth;
+    ctx.beginPath();
+    ctx.arc(earthPx[0], earthPx[1], earthRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#ddeaff";
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+
+    ctx.fillStyle = PALETTE.bary;
+    ctx.beginPath();
+    ctx.arc(baryPx[0], baryPx[1], 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#96a4bd";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    drawText("Sun", sunPx[0] + 12, sunPx[1] - 14, PALETTE.sun, 13, 600);
+    drawText("Earth", earthPx[0] + 12, earthPx[1] - 14, PALETTE.earth, 13, 600);
+    drawText("CM", baryPx[0] + 8, baryPx[1] + 14, PALETTE.bary, 12, 600);
+  }
+
+  function drawLPoints(system) {
+    if (!state.visibility.lPoints) return;
+
+    ctx.lineWidth = 1;
+    for (const [name, coords] of Object.entries(system.lPoints)) {
+      const px = worldToScreen(coords[0], coords[1]);
+      ctx.fillStyle = PALETTE.lagrange;
+      ctx.beginPath();
+      ctx.arc(px[0], px[1], 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#ffdff0";
+      ctx.stroke();
+      drawText(name, px[0] + 8, px[1] - 8, PALETTE.lagrange, 12, 600);
+    }
+  }
+
+  function drawCrosshair(px, py) {
+    ctx.strokeStyle = "#d4deef";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px - 10, py);
+    ctx.lineTo(px + 10, py);
+    ctx.moveTo(px, py - 10);
+    ctx.lineTo(px, py + 10);
+    ctx.stroke();
+  }
+
+  function drawParticle() {
+    const particlePx = worldToScreen(state.particle.x, state.particle.y);
+    drawCrosshair(particlePx[0], particlePx[1]);
+
+    ctx.fillStyle = PALETTE.particle;
+    ctx.beginPath();
+    ctx.arc(particlePx[0], particlePx[1], POINT_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#dce4f2";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  function drawArrow(origin, vecPx, color, label) {
+    const ox = origin[0];
+    const oy = origin[1];
+    const vx = vecPx[0];
+    const vy = vecPx[1];
+    const ex = ox + vx;
+    const ey = oy + vy;
+
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(ox, oy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+
+    const len = Math.hypot(vx, vy);
+    if (len > 0.001) {
+      const ang = Math.atan2(vy, vx);
+      const headLen = 10;
+      const halfW = Math.PI / 7;
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - headLen * Math.cos(ang - halfW), ey - headLen * Math.sin(ang - halfW));
+      ctx.lineTo(ex - headLen * Math.cos(ang + halfW), ey - headLen * Math.sin(ang + halfW));
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    drawText(label, ex + 6, ey + 5, color, 11, 600);
+  }
+
+  function drawForces(forces) {
+    const origin = worldToScreen(state.particle.x, state.particle.y);
+    const toPx = (v) => [v[0] * state.viewport.scale * ARROW_SCALE, -v[1] * state.viewport.scale * ARROW_SCALE];
+
+    if (state.visibility.gSun) drawArrow(origin, toPx(forces.aSun), PALETTE.gSun, "g_sun");
+    if (state.visibility.gEarth) drawArrow(origin, toPx(forces.aEarth), PALETTE.gEarth, "g_earth");
+    if (state.visibility.centrifugal) drawArrow(origin, toPx(forces.aCentrifugal), PALETTE.centrifugal, "centrifugal");
+    if (state.visibility.sum) drawArrow(origin, toPx(forces.aSum), PALETTE.sum, "sum");
+  }
+
+  function drawNearMassWarning() {
+    const message = "Near a body: force arrows are softened.";
+    const font = "600 12px \"Avenir Next\", \"Segoe UI\", \"Trebuchet MS\", sans-serif";
+    const padX = 14;
+    const padY = 8;
+    const minWidth = 260;
+    const minHeight = 32;
+
+    ctx.save();
+    ctx.font = font;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+
+    const textWidth = ctx.measureText(message).width;
+    const maxWidth = Math.max(200, state.viewport.width - 20);
+    const preferredWidth = Math.max(minWidth, textWidth + padX * 2);
+    const width = Math.min(preferredWidth, maxWidth);
+    const height = Math.max(minHeight, 12 + padY * 2);
+    const x = (state.viewport.width - width) * 0.5;
+    const y = 14;
+
+    ctx.fillStyle = PALETTE.warningBg;
+    ctx.strokeStyle = PALETTE.warningBorder;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x, y, width, height, 8);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = PALETTE.warningText;
+    ctx.fillText(message, x + padX, y + height * 0.5);
+    ctx.restore();
+  }
+
+  function updateStatus(forces) {
+    const nearBody = forces.dSun < NEAR_BODY_WARN_DIST || forces.dEarth < NEAR_BODY_WARN_DIST;
+    if (nearBody) {
+      drawNearMassWarning();
+    }
+  }
+
+  function renderScene() {
+    drawBackground();
+    drawGrid();
+
+    const system = getSystemForCurrentMass();
+    const forces = computeForces(system, state.particle.x, state.particle.y);
+
+    drawOrbitSunEarth(system);
+    drawOrbitCmEarth(system);
+    drawBodies(system);
+    drawLPoints(system);
+    drawParticle();
+    drawForces(forces);
+    updateStatus(forces);
+  }
+
+  function animationFrame(ts) {
+    const isInteractive = ts - state.render.lastActive < ACTIVE_WINDOW_MS;
+    const idleIntervalMs = 1000 / IDLE_FPS;
+    const idleDue = ts - state.render.lastIdleFrame >= idleIntervalMs;
+    const shouldRender = isInteractive || state.render.dirty || idleDue;
+
+    if (shouldRender) {
+      renderScene();
+      state.render.lastFrame = ts;
+      if (!isInteractive) {
+        state.render.lastIdleFrame = ts;
+      }
+      state.render.dirty = false;
+    }
+
+    requestAnimationFrame(animationFrame);
+  }
+
+  function handleCanvasPointerMove(event) {
+    const point = toCanvasCssPoint(event);
+    const world = screenToWorld(point[0], point[1]);
+    state.pointer.x = world[0];
+    state.pointer.y = world[1];
+    state.pointer.hasPosition = true;
+
+    if (!state.particle.locked) {
+      state.particle.x = world[0];
+      state.particle.y = world[1];
+    }
+
+    markActive(true);
+  }
+
+  function handleCanvasPointerDown(event) {
+    event.preventDefault();
+    const point = toCanvasCssPoint(event);
+    const world = screenToWorld(point[0], point[1]);
+    state.pointer.x = world[0];
+    state.pointer.y = world[1];
+    state.pointer.hasPosition = true;
+
+    if (state.particle.locked) {
+      state.particle.locked = false;
+      state.particle.x = world[0];
+      state.particle.y = world[1];
+    } else {
+      state.particle.x = world[0];
+      state.particle.y = world[1];
+      state.particle.locked = true;
+    }
+
+    syncUiFromState();
+    markActive(true);
+
+    if (canvas.setPointerCapture) {
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch (_) {
+        // Ignore pointer capture failures from unsupported environments.
+      }
+    }
+  }
+
+  function handleCanvasPointerUp(event) {
+    if (canvas.releasePointerCapture) {
+      try {
+        canvas.releasePointerCapture(event.pointerId);
+      } catch (_) {
+        // Ignore pointer capture failures from unsupported environments.
+      }
+    }
+    markActive(true);
+  }
+
+  function bindUiEvents() {
+    dom.massSlider.addEventListener("input", () => {
+      const normalized = Number(dom.massSlider.value);
+      setMassPercent(valueFromNorm(normalized));
+    });
+
+    dom.presetEarth.addEventListener("click", () => setMassPercent(EARTH_PRESET));
+    dom.presetJupiter.addEventListener("click", () => setMassPercent(JUPITER_PRESET));
+    dom.resetButton.addEventListener("click", () => resetAppState());
+    dom.lockButton.addEventListener("click", () => toggleLock());
+    dom.panelToggle.addEventListener("click", () => setPanelsVisible(!state.ui.panelsVisible));
+
+    for (const [key, element] of Object.entries(dom.toggles)) {
+      element.addEventListener("change", () => setVisibility(key, element.checked));
+    }
+
+    canvas.addEventListener("pointerenter", handleCanvasPointerMove, { passive: true });
+    canvas.addEventListener("pointermove", handleCanvasPointerMove, { passive: true });
+    canvas.addEventListener("pointerdown", handleCanvasPointerDown);
+    canvas.addEventListener("pointerup", handleCanvasPointerUp);
+    canvas.addEventListener("pointercancel", handleCanvasPointerUp);
+
+    window.addEventListener("resize", resizeCanvas, { passive: true });
+    window.addEventListener("keydown", (event) => {
+      if (isEditable(event.target)) return;
+
+      let handled = true;
+      switch (event.key) {
+        case "1":
+          setVisibility("gSun", !state.visibility.gSun);
+          break;
+        case "2":
+          setVisibility("gEarth", !state.visibility.gEarth);
+          break;
+        case "3":
+          setVisibility("centrifugal", !state.visibility.centrifugal);
+          break;
+        case "4":
+          setVisibility("sum", !state.visibility.sum);
+          break;
+        case "l":
+        case "L":
+          setVisibility("lPoints", !state.visibility.lPoints);
+          break;
+        case "g":
+        case "G":
+          setVisibility("grid", !state.visibility.grid);
+          break;
+        case " ":
+        case "Spacebar":
+          toggleLock();
+          break;
+        case "e":
+        case "E":
+          setMassPercent(EARTH_PRESET);
+          break;
+        case "j":
+        case "J":
+          setMassPercent(JUPITER_PRESET);
+          break;
+        case "r":
+        case "R":
+          resetAppState();
+          break;
+        default:
+          handled = false;
+      }
+
+      if (handled) {
+        event.preventDefault();
+      }
+    });
+  }
+
+  function runPhysicsSanityCheck() {
+    const sampleMasses = [EARTH_PRESET, JUPITER_PRESET, 2.0, 50.0];
+    let maxResidual = 0;
+    let failures = 0;
+
+    for (const massPercent of sampleMasses) {
+      const mu = pctToMu(massPercent);
+      const system = {
+        mu,
+        mSun: 1 - mu,
+        mEarth: mu,
+        xSun: -mu,
+        ySun: 0,
+        xEarth: 1 - mu,
+        yEarth: 0,
+        lPoints: computeLPoints(mu)
+      };
+
+      for (const coords of Object.values(system.lPoints)) {
+        const forces = computeForces(system, coords[0], coords[1]);
+        const residual = vecLen(forces.aSum);
+        maxResidual = Math.max(maxResidual, residual);
+        if (residual > LPOINT_RESIDUAL_TOL) failures += 1;
+      }
+    }
+
+    if (failures > 0) {
+      console.warn(
+        "Physics sanity check warning:",
+        failures + " high residuals, max=" + maxResidual.toExponential(2)
+      );
+    }
+
+    return { failures, maxResidual };
+  }
+
+  function bootstrap() {
+    dom.appTitle.textContent = APP_NAME;
+    document.title = APP_NAME + " " + APP_TITLE_SUFFIX;
+    applyPanelsVisibility();
+    resizeCanvas();
+    syncUiFromState();
+    bindUiEvents();
+    runPhysicsSanityCheck();
+    requestAnimationFrame(animationFrame);
+  }
+
+  bootstrap();
+})();
+</script>
+</body>
+</html>
