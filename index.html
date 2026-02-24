@@ -62,7 +62,16 @@
       height: 100%;
       display: block;
       touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
       background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+    }
+
+    body.canvas-dragging {
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
     }
 
     #hud {
@@ -566,6 +575,8 @@
   const NEAR_BODY_WARN_DIST = 0.05;
   const LPOINT_RESIDUAL_TOL = 1e-8;
   const MOBILE_MEDIA_QUERY = "(max-width: 980px) and (hover: none) and (pointer: coarse)";
+
+  let activePointerId = null;
 
   const PALETTE = {
     bgTop: "#060d16",
@@ -1351,6 +1362,10 @@
   }
 
   function handleCanvasPointerMove(event) {
+    if (activePointerId !== null && event.pointerId !== activePointerId) {
+      return;
+    }
+
     const point = toCanvasCssPoint(event);
     const world = screenToWorld(point[0], point[1]);
 
@@ -1367,15 +1382,21 @@
     const point = toCanvasCssPoint(event);
     const world = screenToWorld(point[0], point[1]);
 
-    if (state.particle.locked) {
+    activePointerId = event.pointerId;
+
+    state.particle.x = world[0];
+    state.particle.y = world[1];
+
+    if (event.pointerType !== "mouse") {
+      // On non-mouse pointers prefer uninterrupted dragging over tap-to-toggle behavior.
       state.particle.locked = false;
-      state.particle.x = world[0];
-      state.particle.y = world[1];
+    } else if (state.particle.locked) {
+      state.particle.locked = false;
     } else {
-      state.particle.x = world[0];
-      state.particle.y = world[1];
       state.particle.locked = true;
     }
+
+    document.body.classList.add("canvas-dragging");
 
     syncUiFromState();
     markActive(true);
@@ -1390,6 +1411,10 @@
   }
 
   function handleCanvasPointerUp(event) {
+    if (activePointerId !== null && event.pointerId !== activePointerId) {
+      return;
+    }
+
     if (canvas.releasePointerCapture) {
       try {
         canvas.releasePointerCapture(event.pointerId);
@@ -1397,6 +1422,9 @@
         // Ignore pointer capture failures from unsupported environments.
       }
     }
+
+    activePointerId = null;
+    document.body.classList.remove("canvas-dragging");
     markActive(true);
   }
 
@@ -1421,6 +1449,7 @@
     canvas.addEventListener("pointerdown", handleCanvasPointerDown);
     canvas.addEventListener("pointerup", handleCanvasPointerUp);
     canvas.addEventListener("pointercancel", handleCanvasPointerUp);
+    canvas.addEventListener("lostpointercapture", handleCanvasPointerUp);
 
     window.addEventListener("resize", resizeCanvas, { passive: true });
     window.addEventListener("keydown", (event) => {
