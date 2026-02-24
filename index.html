@@ -349,14 +349,69 @@
     }
 
     #help {
-      font-size: 11px;
-      color: var(--subtle);
-      line-height: 1.45;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(104, 130, 163, 0.3);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
     }
 
-    #help strong {
+    .help-title {
+      margin: 0 0 8px;
+      color: #d6e4f8;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .hotkeys-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 6px;
+    }
+
+    .hotkey-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 8px;
+      min-height: 24px;
+    }
+
+    #help kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 34px;
+      padding: 3px 8px;
+      border: 1px solid rgba(124, 161, 203, 0.72);
+      border-radius: 8px;
+      background: rgba(35, 57, 86, 0.8);
+      color: var(--text);
+      font-family: "Menlo", "Consolas", "Liberation Mono", monospace;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      text-align: center;
+    }
+
+    .hotkey-row span {
       color: var(--muted);
-      font-weight: 600;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    .help-note {
+      margin: 9px 0 0;
+      padding-top: 8px;
+      border-top: 1px solid rgba(105, 134, 168, 0.32);
+      color: var(--subtle);
+      font-size: 11px;
+      line-height: 1.35;
     }
 
     @media (max-width: 980px) {
@@ -459,10 +514,22 @@
         <div class="legend-item"><span class="swatch orbit-sun-earth"></span><span>Sun-Earth orbit (dotted)</span></div>
         <div class="legend-item"><span class="swatch orbit-cm-earth"></span><span>CM-Earth orbit (dashed)</span></div>
       </div>
-    </section>
-
-    <section class="panel" id="help">
-      <strong>Hotkeys:</strong> 1/2/3/4 toggle vectors, L toggle L-points, G toggle grid, Space lock/unlock particle, E Earth preset, J Jupiter preset, R reset. Tap/click canvas to toggle lock. Orbit styles: Sun-Earth dotted, CM-Earth dashed. Changing Earth mass shifts CM while Sun and Earth stay fixed.
+      <section id="help">
+        <p class="help-title">Hotkeys</p>
+        <ul class="hotkeys-list">
+          <li class="hotkey-row"><kbd>1</kbd><span>Toggle g from Sun</span></li>
+          <li class="hotkey-row"><kbd>2</kbd><span>Toggle g from Earth</span></li>
+          <li class="hotkey-row"><kbd>3</kbd><span>Toggle centrifugal</span></li>
+          <li class="hotkey-row"><kbd>4</kbd><span>Toggle vector sum</span></li>
+          <li class="hotkey-row"><kbd>L</kbd><span>Toggle Lagrange points</span></li>
+          <li class="hotkey-row"><kbd>G</kbd><span>Toggle grid</span></li>
+          <li class="hotkey-row"><kbd>Space</kbd><span>Lock/unlock particle</span></li>
+          <li class="hotkey-row"><kbd>O</kbd><span>Toggle Sun-Earth orbit</span></li>
+          <li class="hotkey-row"><kbd>C</kbd><span>Toggle CM-Earth orbit</span></li>
+          <li class="hotkey-row"><kbd>R</kbd><span>Reset state</span></li>
+        </ul>
+        <p class="help-note">Tap/click canvas to lock/unlock particle.</p>
+      </section>
     </section>
   </div>
 </div>
@@ -518,7 +585,6 @@
     appTitle: document.getElementById("app-title"),
     hud: document.getElementById("hud"),
     controlsPanel: document.getElementById("controls"),
-    helpPanel: document.getElementById("help"),
     panelToggle: document.getElementById("panel-toggle"),
     massSlider: document.getElementById("mass-slider"),
     massValue: document.getElementById("mass-value"),
@@ -802,7 +868,7 @@
       return 0;
     }
 
-    const panelRects = [dom.controlsPanel, dom.helpPanel]
+    const panelRects = [dom.controlsPanel]
       .map((panel) => panel.getBoundingClientRect())
       .filter((rect) => rect.width > 0 && rect.height > 0);
 
@@ -1392,11 +1458,11 @@
         case "Space":
           toggleLock();
           break;
-        case "KeyE":
-          setMassPercent(EARTH_PRESET);
+        case "KeyO":
+          setVisibility("orbitSunEarth", !state.visibility.orbitSunEarth);
           break;
-        case "KeyJ":
-          setMassPercent(JUPITER_PRESET);
+        case "KeyC":
+          setVisibility("orbitCmEarth", !state.visibility.orbitCmEarth);
           break;
         case "KeyR":
           resetAppState();
