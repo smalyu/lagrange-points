@@ -717,7 +717,8 @@
       return true;
     }
 
-    if (event.key !== " " && event.key !== "Spacebar") return false;
+    const isSpaceHotkey = event.code === "Space" || event.key === " " || event.key === "Spacebar";
+    if (!isSpaceHotkey) return false;
     return target.matches("button, input[type=\"checkbox\"], input[type=\"radio\"], input[type=\"range\"]");
   }
 
@@ -1297,41 +1298,51 @@
       if (shouldIgnoreHotkey(event)) return;
 
       let handled = true;
-      switch (event.key) {
-        case "1":
+      switch (event.code) {
+        case "Digit1":
+          if (event.key !== "1") {
+            handled = false;
+            break;
+          }
           setVisibility("gSun", !state.visibility.gSun);
           break;
-        case "2":
+        case "Digit2":
+          if (event.key !== "2") {
+            handled = false;
+            break;
+          }
           setVisibility("gEarth", !state.visibility.gEarth);
           break;
-        case "3":
+        case "Digit3":
+          if (event.key !== "3") {
+            handled = false;
+            break;
+          }
           setVisibility("centrifugal", !state.visibility.centrifugal);
           break;
-        case "4":
+        case "Digit4":
+          if (event.key !== "4") {
+            handled = false;
+            break;
+          }
           setVisibility("sum", !state.visibility.sum);
           break;
-        case "l":
-        case "L":
+        case "KeyL":
           setVisibility("lPoints", !state.visibility.lPoints);
           break;
-        case "g":
-        case "G":
+        case "KeyG":
           setVisibility("grid", !state.visibility.grid);
           break;
-        case " ":
-        case "Spacebar":
+        case "Space":
           toggleLock();
           break;
-        case "e":
-        case "E":
+        case "KeyE":
           setMassPercent(EARTH_PRESET);
           break;
-        case "j":
-        case "J":
+        case "KeyJ":
           setMassPercent(JUPITER_PRESET);
           break;
-        case "r":
-        case "R":
+        case "KeyR":
           resetAppState();
           break;
         default:
