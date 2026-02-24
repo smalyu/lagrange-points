@@ -813,6 +813,10 @@
     return [event.clientX - rect.left, event.clientY - rect.top];
   }
 
+  function isSpaceHotkey(event) {
+    return event.code === "Space" || event.key === " " || event.key === "Spacebar";
+  }
+
   function shouldIgnoreHotkey(event) {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return false;
@@ -820,9 +824,7 @@
       return true;
     }
 
-    const isSpaceHotkey = event.code === "Space" || event.key === " " || event.key === "Spacebar";
-    if (!isSpaceHotkey) return false;
-    return target.matches("button, input[type=\"checkbox\"], input[type=\"radio\"], input[type=\"range\"]");
+    return false;
   }
 
   function formatNumber(value, maximumFractionDigits = 6) {
@@ -1411,6 +1413,14 @@
 
     window.addEventListener("resize", resizeCanvas, { passive: true });
     window.addEventListener("keydown", (event) => {
+      if (isSpaceHotkey(event)) {
+        if (!event.repeat) {
+          toggleLock();
+        }
+        event.preventDefault();
+        return;
+      }
+
       if (shouldIgnoreHotkey(event)) return;
 
       let handled = true;
@@ -1448,9 +1458,6 @@
           break;
         case "KeyG":
           setVisibility("grid", !state.visibility.grid);
-          break;
-        case "Space":
-          toggleLock();
           break;
         case "KeyO":
           setVisibility("orbitSunEarth", !state.visibility.orbitSunEarth);
