@@ -92,6 +92,10 @@
 
     .panel {
       width: min(360px, calc(100vw - 28px));
+      max-height: calc(100vh - 28px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
       pointer-events: auto;
       background: var(--panel);
       border: 1px solid var(--panel-border);
@@ -99,6 +103,12 @@
       padding: 12px 14px;
       box-shadow: 0 10px 24px var(--panel-shadow);
       backdrop-filter: blur(6px);
+    }
+
+    @supports (height: 100dvh) {
+      .panel {
+        max-height: calc(100dvh - 28px);
+      }
     }
 
     h1 {
@@ -372,6 +382,31 @@
         grid-template-columns: 1fr;
       }
     }
+
+    @media (max-width: 980px) and (hover: none) and (pointer: coarse) {
+      #panel-toggle {
+        top: calc(env(safe-area-inset-top) + 10px);
+      }
+
+      #hud {
+        inset: calc(env(safe-area-inset-top) + 60px) 10px 10px;
+        justify-content: flex-start;
+      }
+
+      .panel {
+        max-height: calc(100vh - env(safe-area-inset-top) - 70px);
+      }
+
+      @supports (height: 100dvh) {
+        .panel {
+          max-height: calc(100dvh - env(safe-area-inset-top) - 70px);
+        }
+      }
+
+      #help {
+        display: none;
+      }
+    }
   </style>
 </head>
 <body>
@@ -451,6 +486,7 @@
   const IDLE_FPS = 8;
   const NEAR_BODY_WARN_DIST = 0.05;
   const LPOINT_RESIDUAL_TOL = 5e-3;
+  const MOBILE_MEDIA_QUERY = "(max-width: 980px) and (hover: none) and (pointer: coarse)";
 
   const PALETTE = {
     bgTop: "#060d16",
@@ -503,6 +539,10 @@
     }
   };
 
+  function isMobileDevice() {
+    return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
+  }
+
   function createDefaultState() {
     return {
       massPercent: DEFAULT_MASS_PERCENT,
@@ -543,7 +583,7 @@
         reservedRightPx: 0
       },
       ui: {
-        panelsVisible: true
+        panelsVisible: !isMobileDevice()
       },
       cache: {
         systemMassPercent: NaN,
