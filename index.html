@@ -183,6 +183,22 @@
       transition: background 120ms ease;
     }
 
+    button,
+    input[type="checkbox"],
+    input[type="range"] {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:focus,
+    button:focus-visible,
+    input[type="checkbox"]:focus,
+    input[type="checkbox"]:focus-visible,
+    input[type="range"]:focus,
+    input[type="range"]:focus-visible {
+      outline: none;
+      box-shadow: none;
+    }
+
     button:hover {
       background: rgba(57, 84, 120, 0.8);
     }
@@ -694,10 +710,15 @@
     return [event.clientX - rect.left, event.clientY - rect.top];
   }
 
-  function isEditable(target) {
+  function shouldIgnoreHotkey(event) {
+    const target = event.target;
     if (!(target instanceof HTMLElement)) return false;
-    const tag = target.tagName;
-    return target.isContentEditable || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+    if (target.isContentEditable || target.tagName === "TEXTAREA" || target.tagName === "SELECT") {
+      return true;
+    }
+
+    if (event.key !== " " && event.key !== "Spacebar") return false;
+    return target.matches("button, input[type=\"checkbox\"], input[type=\"radio\"], input[type=\"range\"]");
   }
 
   function formatNumber(value, maximumFractionDigits = 6) {
@@ -1273,7 +1294,7 @@
 
     window.addEventListener("resize", resizeCanvas, { passive: true });
     window.addEventListener("keydown", (event) => {
-      if (isEditable(event.target)) return;
+      if (shouldIgnoreHotkey(event)) return;
 
       let handled = true;
       switch (event.key) {
