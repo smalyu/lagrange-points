@@ -482,7 +482,7 @@
           <span id="mass-value" class="range-value">25%</span>
           <span>50%</span>
         </div>
-        <p id="default-mass-note" class="default-mass-note">Note: for easier visual interpretation, the default Earth mass is intentionally increased to 25% of the Sun mass.</p>
+        <p id="default-mass-note" class="default-mass-note">Note: for easier visual interpretation, the default Earth mass is intentionally increased to 25% of the Sun mass. The Sun mass stays fixed while the slider changes Earth mass.</p>
       </div>
 
       <div class="control-group button-row">
@@ -540,7 +540,7 @@
 
   const APP_NAME = "Lagrange Points";
   const SINGULARITY_EPS = 1e-15;
-  const ARROW_SCALE = 0.52;
+  const ARROW_SCALE = 0.416;
   const POINT_RADIUS = 7;
   const PCT_MIN = 0.0001;
   const PCT_MAX = 50.0;
@@ -548,6 +548,7 @@
   const DEFAULT_MASS_PERCENT = 25.0;
   const EARTH_PRESET = 0.0003003;
   const JUPITER_PRESET = 0.095;
+  const SUN_MASS = 1.0;
   const SCALE_FACTOR = 0.34;
   const ACTIVE_WINDOW_MS = 900;
   const IDLE_FPS = 8;
@@ -583,7 +584,6 @@
 
   const dom = {
     appTitle: document.getElementById("app-title"),
-    hud: document.getElementById("hud"),
     controlsPanel: document.getElementById("controls"),
     panelToggle: document.getElementById("panel-toggle"),
     massSlider: document.getElementById("mass-slider"),
@@ -612,7 +612,6 @@
   function createDefaultState() {
     return {
       massPercent: DEFAULT_MASS_PERCENT,
-      mu: pctToMu(DEFAULT_MASS_PERCENT),
       particle: {
         x: 0.7,
         y: 0.5,
@@ -628,15 +627,9 @@
         orbitSunEarth: true,
         orbitCmEarth: true
       },
-      pointer: {
-        x: 0,
-        y: 0,
-        hasPosition: false
-      },
       render: {
         dirty: true,
         lastActive: performance.now(),
-        lastFrame: 0,
         lastIdleFrame: 0
       },
       viewport: {
@@ -672,8 +665,12 @@
     return [a[0] + b[0], a[1] + b[1]];
   }
 
+  function pctToMassRatio(pct) {
+    return pct / 100.0;
+  }
+
   function pctToMu(pct) {
-    const q = pct / 100.0;
+    const q = pctToMassRatio(pct);
     return q / (1.0 + q);
   }
 
@@ -685,8 +682,8 @@
     return [-mass * dx * invR3, -mass * dy * invR3];
   }
 
-  function centrifugalAcc(x, y) {
-    return [x, y];
+  function centrifugalAcc(x, y, angularRate2) {
+    return [angularRate2 * x, angularRate2 * y];
   }
 
   function fColinear(x, mu) {
@@ -706,8 +703,8 @@
   }
 
   function bisectRoot(mu, a, b, iterations = 80) {
-    let fa = fColinear(a, mu);
-    let fb = fColinear(b, mu);
+    const fa = fColinear(a, mu);
+    const fb = fColinear(b, mu);
     if (fa === 0) return a;
     if (fb === 0) return b;
     if (fa * fb > 0) return null;
@@ -721,7 +718,6 @@
       const fm = fColinear(mid, mu);
       if (flo * fm <= 0) {
         hi = mid;
-        fb = fm;
       } else {
         lo = mid;
         flo = fm;
@@ -840,7 +836,6 @@
 
   function setMassPercent(value) {
     state.massPercent = clamp(value, PCT_MIN, PCT_MAX);
-    state.mu = pctToMu(state.massPercent);
     state.cache.systemMassPercent = NaN;
     syncUiFromState();
     markActive(true);
@@ -917,10 +912,8 @@
   function resetAppState() {
     const fresh = createDefaultState();
     state.massPercent = fresh.massPercent;
-    state.mu = fresh.mu;
     state.particle = fresh.particle;
     state.visibility = fresh.visibility;
-    state.pointer = fresh.pointer;
     state.ui = fresh.ui;
     state.render.dirty = true;
     state.render.lastActive = performance.now();
@@ -975,12 +968,17 @@
       return state.cache.system;
     }
 
+    const massRatio = pctToMassRatio(state.massPercent);
     const mu = pctToMu(state.massPercent);
     const lPointsBary = computeLPoints(mu);
+    const mSun = SUN_MASS;
+    const mEarth = SUN_MASS * massRatio;
+    const angularRate2 = mSun + mEarth;
     const system = {
       mu,
-      mSun: 1.0 - mu,
-      mEarth: mu,
+      mSun,
+      mEarth,
+      angularRate2,
       xSun: 0.0,
       ySun: 0.0,
       xEarth: 1.0,
@@ -990,7 +988,6 @@
       lPoints: shiftLPointsToSunEarthFrame(lPointsBary, mu)
     };
 
-    state.mu = mu;
     state.cache.systemMassPercent = state.massPercent;
     state.cache.system = system;
     return system;
@@ -999,7 +996,11 @@
   function computeForces(system, x, y) {
     const aSun = gravAcc(system.mSun, x - system.xSun, y - system.ySun);
     const aEarth = gravAcc(system.mEarth, x - system.xEarth, y - system.yEarth);
-    const aCentrifugal = centrifugalAcc(x - system.xBary, y - system.yBary);
+    const aCentrifugal = centrifugalAcc(
+      x - system.xBary,
+      y - system.yBary,
+      system.angularRate2
+    );
     const aSum = vecAdd(vecAdd(aSun, aEarth), aCentrifugal);
 
     return {
@@ -1327,7 +1328,6 @@
 
     if (shouldRender) {
       renderScene();
-      state.render.lastFrame = ts;
       if (!isInteractive) {
         state.render.lastIdleFrame = ts;
       }
@@ -1340,9 +1340,6 @@
   function handleCanvasPointerMove(event) {
     const point = toCanvasCssPoint(event);
     const world = screenToWorld(point[0], point[1]);
-    state.pointer.x = world[0];
-    state.pointer.y = world[1];
-    state.pointer.hasPosition = true;
 
     if (!state.particle.locked) {
       state.particle.x = world[0];
@@ -1356,9 +1353,6 @@
     event.preventDefault();
     const point = toCanvasCssPoint(event);
     const world = screenToWorld(point[0], point[1]);
-    state.pointer.x = world[0];
-    state.pointer.y = world[1];
-    state.pointer.hasPosition = true;
 
     if (state.particle.locked) {
       state.particle.locked = false;
@@ -1483,12 +1477,16 @@
     let failures = 0;
 
     for (const massPercent of sampleMasses) {
+      const massRatio = pctToMassRatio(massPercent);
       const mu = pctToMu(massPercent);
       const lPointsBary = computeLPoints(mu);
+      const mSun = SUN_MASS;
+      const mEarth = SUN_MASS * massRatio;
       const system = {
         mu,
-        mSun: 1 - mu,
-        mEarth: mu,
+        mSun,
+        mEarth,
+        angularRate2: mSun + mEarth,
         xSun: 0,
         ySun: 0,
         xEarth: 1,
