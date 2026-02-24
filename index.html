@@ -411,7 +411,7 @@
     </section>
 
     <section class="panel" id="help">
-      <strong>Hotkeys:</strong> 1/2/3/4 toggle vectors, L toggle L-points, G toggle grid, Space lock/unlock particle, E Earth preset, J Jupiter preset, R reset. Tap/click canvas to toggle lock. Orbit styles: Sun-Earth dotted, CM-Earth dashed.
+      <strong>Hotkeys:</strong> 1/2/3/4 toggle vectors, L toggle L-points, G toggle grid, Space lock/unlock particle, E Earth preset, J Jupiter preset, R reset. Tap/click canvas to toggle lock. Orbit styles: Sun-Earth dotted, CM-Earth dashed. Changing Earth mass shifts CM while Sun and Earth stay fixed.
     </section>
   </div>
 </div>
@@ -650,6 +650,14 @@
     return points;
   }
 
+  function shiftLPointsToSunEarthFrame(lPointsBary, mu) {
+    const shifted = {};
+    for (const [name, coords] of Object.entries(lPointsBary)) {
+      shifted[name] = [coords[0] + mu, coords[1]];
+    }
+    return shifted;
+  }
+
   function normFromValue(value) {
     const lv = Math.log10(clamp(value, PCT_MIN, PCT_MAX));
     const lmin = Math.log10(PCT_MIN);
@@ -836,15 +844,18 @@
     }
 
     const mu = pctToMu(state.massPercent);
+    const lPointsBary = computeLPoints(mu);
     const system = {
       mu,
       mSun: 1.0 - mu,
       mEarth: mu,
-      xSun: -mu,
+      xSun: 0.0,
       ySun: 0.0,
-      xEarth: 1.0 - mu,
+      xEarth: 1.0,
       yEarth: 0.0,
-      lPoints: computeLPoints(mu)
+      xBary: mu,
+      yBary: 0.0,
+      lPoints: shiftLPointsToSunEarthFrame(lPointsBary, mu)
     };
 
     state.mu = mu;
@@ -856,7 +867,7 @@
   function computeForces(system, x, y) {
     const aSun = gravAcc(system.mSun, x - system.xSun, y - system.ySun);
     const aEarth = gravAcc(system.mEarth, x - system.xEarth, y - system.yEarth);
-    const aCentrifugal = centrifugalAcc(x, y);
+    const aCentrifugal = centrifugalAcc(x - system.xBary, y - system.yBary);
     const aSum = vecAdd(vecAdd(aSun, aEarth), aCentrifugal);
 
     return {
@@ -971,15 +982,15 @@
 
   function drawOrbitCmEarth(system) {
     if (!state.visibility.orbitCmEarth) return;
-    const baryPx = worldToScreen(0, 0);
-    const radiusPx = Math.abs(system.xEarth) * state.viewport.scale;
+    const baryPx = worldToScreen(system.xBary, system.yBary);
+    const radiusPx = Math.hypot(system.xEarth - system.xBary, system.yEarth - system.yBary) * state.viewport.scale;
     drawDashedCircle(baryPx[0], baryPx[1], radiusPx, "#9fd7ff");
   }
 
   function drawBodies(system) {
     const sunPx = worldToScreen(system.xSun, system.ySun);
     const earthPx = worldToScreen(system.xEarth, system.yEarth);
-    const baryPx = worldToScreen(0, 0);
+    const baryPx = worldToScreen(system.xBary, system.yBary);
 
     ctx.strokeStyle = PALETTE.lineSE;
     ctx.lineWidth = 2;
@@ -1314,15 +1325,18 @@
 
     for (const massPercent of sampleMasses) {
       const mu = pctToMu(massPercent);
+      const lPointsBary = computeLPoints(mu);
       const system = {
         mu,
         mSun: 1 - mu,
         mEarth: mu,
-        xSun: -mu,
+        xSun: 0,
         ySun: 0,
-        xEarth: 1 - mu,
+        xEarth: 1,
         yEarth: 0,
-        lPoints: computeLPoints(mu)
+        xBary: mu,
+        yBary: 0,
+        lPoints: shiftLPointsToSunEarthFrame(lPointsBary, mu)
       };
 
       for (const coords of Object.values(system.lPoints)) {
