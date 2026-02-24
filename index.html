@@ -1181,6 +1181,21 @@
     if (state.visibility.sum) drawArrow(origin, toPx(forces.aSum), PALETTE.sum, "sum");
   }
 
+  function computeWarningTopY(height) {
+    const baseY = 14;
+    if (isDesktopLayout()) return baseY;
+
+    const toggleRect = dom.panelToggle.getBoundingClientRect();
+    if (toggleRect.width <= 0 || toggleRect.height <= 0) {
+      return baseY;
+    }
+
+    const canvasRect = canvas.getBoundingClientRect();
+    const desiredY = toggleRect.bottom - canvasRect.top + 8;
+    const maxY = Math.max(baseY, state.viewport.height - height - 8);
+    return clamp(desiredY, baseY, maxY);
+  }
+
   function drawNearMassWarning() {
     const message = "Near a body: vectors can become very large";
     const font = "600 12px \"Avenir Next\", \"Segoe UI\", \"Trebuchet MS\", sans-serif";
@@ -1200,7 +1215,7 @@
     const width = Math.min(preferredWidth, maxWidth);
     const height = Math.max(minHeight, 12 + padY * 2);
     const x = (state.viewport.width - width) * 0.5;
-    const y = 14;
+    const y = computeWarningTopY(height);
 
     ctx.fillStyle = PALETTE.warningBg;
     ctx.strokeStyle = PALETTE.warningBorder;
