@@ -1002,8 +1002,10 @@
     ctx.lineTo(earthPx[0], earthPx[1]);
     ctx.stroke();
 
-    const sunRadius = clamp(12 + 7 * Math.sqrt(system.mSun / 0.5), 12, 24);
-    const earthRadius = clamp(7 + 28 * Math.sqrt(Math.max(system.mEarth, 1e-6)), 6, 20);
+    const sunRadius = 22;
+    const earthToSunMassRatio = system.mEarth / Math.max(system.mSun, 1e-12);
+    const earthToSunRadiusRatio = Math.sqrt(Math.max(earthToSunMassRatio, 0));
+    const earthRadius = clamp(sunRadius * earthToSunRadiusRatio, 0, sunRadius);
 
     ctx.fillStyle = PALETTE.sun;
     ctx.beginPath();
