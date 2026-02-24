@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lagrange Explorer MVP</title>
+  <title>Lagrange Points</title>
   <style>
     :root {
       --bg-top: #060d16;
@@ -420,8 +420,7 @@
 (() => {
   "use strict";
 
-  const APP_NAME = "Lagrange Explorer";
-  const APP_TITLE_SUFFIX = "MVP";
+  const APP_NAME = "Lagrange Points";
   const SOFTEN = 1e-5;
   const ARROW_SCALE = 0.52;
   const POINT_RADIUS = 7;
@@ -1359,7 +1358,7 @@
 
   function bootstrap() {
     dom.appTitle.textContent = APP_NAME;
-    document.title = APP_NAME + " " + APP_TITLE_SUFFIX;
+    document.title = APP_NAME;
     applyPanelsVisibility();
     resizeCanvas();
     syncUiFromState();
