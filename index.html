@@ -30,6 +30,7 @@
       --lagrange: #ff8fbe;
       --warning: #ff7272;
       --ok: #6ce7a8;
+      --caution: #ffd467;
     }
 
     * {
@@ -330,6 +331,12 @@
       font-size: 12px;
     }
 
+    #balance-panel .stat-key sup {
+      font-size: 0.72em;
+      vertical-align: super;
+      line-height: 0;
+    }
+
     .stat-value {
       color: var(--text);
       font-size: 12px;
@@ -341,6 +348,10 @@
 
     .ok {
       color: var(--ok);
+    }
+
+    .caution {
+      color: var(--caution);
     }
 
     .warning {
@@ -502,7 +513,7 @@
           <span id="mass-value" class="range-value">25%</span>
           <span>50%</span>
         </div>
-        <p id="default-mass-note" class="default-mass-note">Note: for easier visual interpretation, the default Earth mass is intentionally increased to 25% of the Sun mass. The Sun mass stays fixed while the slider changes Earth mass.</p>
+        <p id="default-mass-note" class="default-mass-note">Note: for easier visual interpretation, the default Earth mass is intentionally increased to 25% of the Sun mass.</p>
       </div>
 
       <div class="control-group button-row">
@@ -526,6 +537,20 @@
         <label class="toggle-item" for="toggle-orbit-cm-earth"><input id="toggle-orbit-cm-earth" type="checkbox" checked>Orbit (CM-Earth)</label>
       </div>
 
+      <section class="control-group" id="balance-panel">
+        <p class="panel-title">Point Diagnostics</p>
+        <div class="stat-row"><span class="stat-key">Reference frame</span><span id="diag-frame" class="stat-value">rotating with Sun-Earth</span></div>
+        <div class="stat-row"><span class="stat-key">Sun-Earth distance (m)</span><span id="diag-sun-earth-distance" class="stat-value">n/a</span></div>
+        <div class="stat-row"><span class="stat-key">Rotation rate &omega; (rad/s)</span><span id="diag-omega" class="stat-value">n/a</span></div>
+        <div class="stat-row"><span class="stat-key">Distance to CM (m)</span><span id="diag-r-cm" class="stat-value">n/a</span></div>
+        <div class="stat-row"><span class="stat-key">Co-rotation speed (m/s)</span><span id="diag-v-corot" class="stat-value">n/a</span></div>
+        <div class="stat-row"><span class="stat-key">Gravity from Sun (m/s<sup>2</sup>)</span><span id="diag-g-sun" class="stat-value">n/a</span></div>
+        <div class="stat-row"><span class="stat-key">Gravity from Earth (m/s<sup>2</sup>)</span><span id="diag-g-earth" class="stat-value">n/a</span></div>
+        <div class="stat-row"><span class="stat-key">Centrifugal acceleration (m/s<sup>2</sup>)</span><span id="diag-a-cf" class="stat-value">n/a</span></div>
+        <div class="stat-row"><span class="stat-key">Total acceleration (m/s<sup>2</sup>)</span><span id="diag-a-sum" class="stat-value">n/a</span></div>
+        <div class="stat-row"><span class="stat-key">Nearest L-point distance (m)</span><span id="diag-nearest-lpoint" class="stat-value">n/a</span></div>
+      </section>
+
       <div class="legend">
         <div class="legend-item"><span class="swatch gsun"></span><span>g_sun</span></div>
         <div class="legend-item"><span class="swatch gearth"></span><span>g_earth</span></div>
@@ -548,7 +573,7 @@
           <li class="hotkey-row"><kbd>C</kbd><span>Toggle CM-Earth orbit</span></li>
           <li class="hotkey-row"><kbd>R</kbd><span>Reset state</span></li>
         </ul>
-        <p class="help-note">Tap/click canvas to lock/unlock particle<br>CM = center of mass<br>Sun/Earth labels are intuitive names for two rotating bodies, one more massive than the other</p>
+        <p class="help-note">Tap/click canvas to lock/unlock the particle.<br>This scene is shown in a rotating frame co-rotating with the Sun-Earth pair around CM (center of mass), so Sun and Earth stay fixed in this view; the centrifugal term is therefore included and points away from CM.<br>The vectors are a local snapshot for a particle instantaneously at rest in this rotating frame.<br>Sun/Earth labels are intuitive names for two rotating bodies, one more massive than the other.</p>
       </section>
     </section>
   </div>
@@ -574,6 +599,16 @@
   const IDLE_FPS = 8;
   const NEAR_BODY_WARN_DIST = 0.05;
   const LPOINT_RESIDUAL_TOL = 1e-8;
+  const BALANCE_NEAR_THRESHOLD = 1e-3;
+  const BALANCE_PARTIAL_THRESHOLD = 1e-2;
+  const G_SI = 6.67430e-11;
+  const SUN_MASS_SI_KG = 1.98847e30;
+  const REF_DISTANCE_SI_M = 149597870700;
+  const MODEL_TIME_UNIT_S = Math.sqrt(
+    (REF_DISTANCE_SI_M ** 3) / (G_SI * SUN_MASS_SI_KG)
+  );
+  const MODEL_SPEED_UNIT_SI = REF_DISTANCE_SI_M / MODEL_TIME_UNIT_S;
+  const MODEL_ACCEL_UNIT_SI = REF_DISTANCE_SI_M / (MODEL_TIME_UNIT_S ** 2);
   const MOBILE_MEDIA_QUERY = "(max-width: 980px) and (hover: none) and (pointer: coarse)";
 
   let activePointerId = null;
@@ -615,6 +650,18 @@
     presetJupiter: document.getElementById("preset-jupiter"),
     resetButton: document.getElementById("reset-button"),
     lockButton: document.getElementById("lock-button"),
+    diagnostics: {
+      frame: document.getElementById("diag-frame"),
+      sunEarthDistance: document.getElementById("diag-sun-earth-distance"),
+      omega: document.getElementById("diag-omega"),
+      rCm: document.getElementById("diag-r-cm"),
+      vCorot: document.getElementById("diag-v-corot"),
+      gSun: document.getElementById("diag-g-sun"),
+      gEarth: document.getElementById("diag-g-earth"),
+      aCentrifugal: document.getElementById("diag-a-cf"),
+      aSum: document.getElementById("diag-a-sum"),
+      nearestLPoint: document.getElementById("diag-nearest-lpoint")
+    },
     toggles: {
       gSun: document.getElementById("toggle-gsun"),
       gEarth: document.getElementById("toggle-gearth"),
@@ -856,6 +903,90 @@
       maximumFractionDigits,
       minimumFractionDigits: 0
     });
+  }
+
+  function formatMetricValue(value, maximumFractionDigits = 6) {
+    if (!Number.isFinite(value)) return "n/a";
+    const abs = Math.abs(value);
+    if (abs !== 0 && (abs < 1e-3 || abs > 1e3)) {
+      return value.toExponential(4);
+    }
+    return formatNumber(value, maximumFractionDigits);
+  }
+
+  function computeDiagnostics(system, forces, particle) {
+    const omega = Math.sqrt(Math.max(system.angularRate2, 0));
+    const dxCm = particle.x - system.xBary;
+    const dyCm = particle.y - system.yBary;
+    const rCm = Math.hypot(dxCm, dyCm);
+    const vCorot = omega * rCm;
+
+    const gSunMag = vecLen(forces.aSun);
+    const gEarthMag = vecLen(forces.aEarth);
+    const aCentrifugalMag = vecLen(forces.aCentrifugal);
+    const aSumMag = vecLen(forces.aSum);
+
+    let balanceClass = "";
+    if (aSumMag <= BALANCE_NEAR_THRESHOLD) {
+      balanceClass = "ok";
+    } else if (aSumMag <= BALANCE_PARTIAL_THRESHOLD) {
+      balanceClass = "caution";
+    }
+
+    let nearestLPoint = "n/a";
+    let nearestLPointDistance = Infinity;
+    for (const [name, coords] of Object.entries(system.lPoints)) {
+      if (!Array.isArray(coords) || coords.length < 2) continue;
+      const dist = Math.hypot(particle.x - coords[0], particle.y - coords[1]);
+      if (dist < nearestLPointDistance) {
+        nearestLPointDistance = dist;
+        nearestLPoint = name;
+      }
+    }
+    if (!Number.isFinite(nearestLPointDistance)) {
+      nearestLPointDistance = NaN;
+    }
+
+    const omegaSi = omega / MODEL_TIME_UNIT_S;
+    const rCmSi = rCm * REF_DISTANCE_SI_M;
+    const vCorotSi = vCorot * MODEL_SPEED_UNIT_SI;
+    const gSunMagSi = gSunMag * MODEL_ACCEL_UNIT_SI;
+    const gEarthMagSi = gEarthMag * MODEL_ACCEL_UNIT_SI;
+    const aCentrifugalMagSi = aCentrifugalMag * MODEL_ACCEL_UNIT_SI;
+    const aSumMagSi = aSumMag * MODEL_ACCEL_UNIT_SI;
+    const nearestLPointDistanceSi = nearestLPointDistance * REF_DISTANCE_SI_M;
+
+    return {
+      omegaSi,
+      rCmSi,
+      vCorotSi,
+      gSunMagSi,
+      gEarthMagSi,
+      aCentrifugalMagSi,
+      aSumMagSi,
+      balanceClass,
+      nearestLPoint,
+      nearestLPointDistanceSi
+    };
+  }
+
+  function updateDiagnosticsUI(diagnostics) {
+    dom.diagnostics.frame.textContent = "rotating with Sun-Earth";
+    dom.diagnostics.sunEarthDistance.textContent = formatMetricValue(REF_DISTANCE_SI_M, 2);
+    dom.diagnostics.omega.textContent = formatMetricValue(diagnostics.omegaSi, 6);
+    dom.diagnostics.rCm.textContent = formatMetricValue(diagnostics.rCmSi, 6);
+    dom.diagnostics.vCorot.textContent = formatMetricValue(diagnostics.vCorotSi, 6);
+    dom.diagnostics.gSun.textContent = formatMetricValue(diagnostics.gSunMagSi, 6);
+    dom.diagnostics.gEarth.textContent = formatMetricValue(diagnostics.gEarthMagSi, 6);
+    dom.diagnostics.aCentrifugal.textContent = formatMetricValue(diagnostics.aCentrifugalMagSi, 6);
+    dom.diagnostics.aSum.textContent = formatMetricValue(diagnostics.aSumMagSi, 6);
+    dom.diagnostics.aSum.classList.toggle("ok", diagnostics.balanceClass === "ok");
+    dom.diagnostics.aSum.classList.toggle("caution", diagnostics.balanceClass === "caution");
+
+    const nearestText = Number.isFinite(diagnostics.nearestLPointDistanceSi)
+      ? diagnostics.nearestLPoint + ", distance " + formatMetricValue(diagnostics.nearestLPointDistanceSi, 6)
+      : "n/a";
+    dom.diagnostics.nearestLPoint.textContent = nearestText;
   }
 
   function setMassPercent(value) {
@@ -1334,6 +1465,8 @@
 
     const system = getSystemForCurrentMass();
     const forces = computeForces(system, state.particle.x, state.particle.y);
+    const diagnostics = computeDiagnostics(system, forces, state.particle);
+    updateDiagnosticsUI(diagnostics);
 
     drawOrbitSunEarth(system);
     drawOrbitCmEarth(system);
