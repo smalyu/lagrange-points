@@ -1059,7 +1059,17 @@
           return formatNumber(value, maximumFractionDigits);
         }
 
-        function computeDiagnostics(system, forces, particle) {
+        function getNearBodyFlags(forces) {
+          const nearSun = forces.dSun < NEAR_BODY_WARN_DIST;
+          const nearEarth = forces.dEarth < NEAR_BODY_WARN_DIST;
+          return {
+            nearSun,
+            nearEarth,
+            nearAny: nearSun || nearEarth,
+          };
+        }
+
+        function computeDiagnostics(system, forces, particle, nearBodyFlags) {
           const omega = Math.sqrt(Math.max(system.angularRate2, 0));
           const dxCm = particle.x - system.xBary;
           const dyCm = particle.y - system.yBary;
@@ -1116,6 +1126,8 @@
             balanceClass,
             nearestLPoint,
             nearestLPointDistanceSi,
+            hideGSun: nearBodyFlags.nearSun,
+            hideGEarth: nearBodyFlags.nearEarth,
           };
         }
 
@@ -1137,14 +1149,12 @@
             diagnostics.vCorotSi,
             6,
           );
-          dom.diagnostics.gSun.textContent = formatMetricValue(
-            diagnostics.gSunMagSi,
-            6,
-          );
-          dom.diagnostics.gEarth.textContent = formatMetricValue(
-            diagnostics.gEarthMagSi,
-            6,
-          );
+          dom.diagnostics.gSun.textContent = diagnostics.hideGSun
+            ? "-"
+            : formatMetricValue(diagnostics.gSunMagSi, 6);
+          dom.diagnostics.gEarth.textContent = diagnostics.hideGEarth
+            ? "-"
+            : formatMetricValue(diagnostics.gEarthMagSi, 6);
           dom.diagnostics.aCentrifugal.textContent = formatMetricValue(
             diagnostics.aCentrifugalMagSi,
             6,
@@ -1704,11 +1714,8 @@
           ctx.restore();
         }
 
-        function updateStatus(forces) {
-          const nearBody =
-            forces.dSun < NEAR_BODY_WARN_DIST ||
-            forces.dEarth < NEAR_BODY_WARN_DIST;
-          if (nearBody) {
+        function updateStatus(nearBodyFlags) {
+          if (nearBodyFlags.nearAny) {
             drawNearMassWarning();
           }
         }
@@ -1723,10 +1730,12 @@
             state.particle.x,
             state.particle.y,
           );
+          const nearBodyFlags = getNearBodyFlags(forces);
           const diagnostics = computeDiagnostics(
             system,
             forces,
             state.particle,
+            nearBodyFlags,
           );
           updateDiagnosticsUI(diagnostics);
 
@@ -1736,7 +1745,7 @@
           drawLPoints(system);
           drawParticle();
           drawForces(forces);
-          updateStatus(forces);
+          updateStatus(nearBodyFlags);
         }
 
         function animationFrame(ts) {
