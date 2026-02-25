@@ -1,6 +1,6 @@
 # Lagrange Points
 
-An interactive website about Lagrange points in a Sun-Earth system, shown in a rotating reference frame. You can move a test particle and inspect acceleration vectors from the Sun (`g_sun`), Earth (`g_earth`), the centrifugal term, and their vector sum, while tracking where `L1`-`L5` appear for different mass ratios.
+An interactive website about Lagrange points in a Sun-Earth system. A Sun-Earth co-rotating reference frame is used, in which the Sun and Earth are stationary. You can move a test particle and inspect acceleration vectors from the Sun (`g_sun`), Earth (`g_earth`), the centrifugal term, and their vector sum, while tracking where `L1`-`L5` appear for different mass ratios.
 
 ## Website
 
