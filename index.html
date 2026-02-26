@@ -1642,12 +1642,14 @@
           const earthPx = worldToScreen(system.xEarth, system.yEarth);
           const baryPx = worldToScreen(system.xBary, system.yBary);
 
-          ctx.strokeStyle = PALETTE.lineSE;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(sunPx[0], sunPx[1]);
-          ctx.lineTo(earthPx[0], earthPx[1]);
-          ctx.stroke();
+          if (state.visibility.grid) {
+            ctx.strokeStyle = PALETTE.lineSE;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(sunPx[0], sunPx[1]);
+            ctx.lineTo(earthPx[0], earthPx[1]);
+            ctx.stroke();
+          }
 
           const sunRadius = 22;
           const earthToSunMassRatio =
