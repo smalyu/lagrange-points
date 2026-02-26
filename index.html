@@ -263,12 +263,19 @@
         border-color: rgba(15, 31, 50, 0.94) transparent transparent;
       }
 
-      .preset-item:hover .preset-tooltip,
       .preset-item > button:focus-visible + .preset-tooltip,
       .preset-item.tooltip-visible .preset-tooltip {
         opacity: 1;
         visibility: visible;
         transform: translateY(0);
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .preset-item:hover .preset-tooltip {
+          opacity: 1;
+          visibility: visible;
+          transform: translateY(0);
+        }
       }
 
       button {
@@ -1994,19 +2001,16 @@
           });
 
           function bindPresetTooltipTouch(buttonElement, key) {
-            buttonElement.addEventListener("pointerdown", (event) => {
+            buttonElement.addEventListener("pointerdown", () => {
               if (!isMobileDevice()) return;
-              if (event.pointerType === "mouse") return;
               showPresetTooltip(key);
             });
-            buttonElement.addEventListener("pointerup", () => {
+            function hideOnTouchEnd() {
               if (!isMobileDevice()) return;
               hidePresetTooltips();
-            });
-            buttonElement.addEventListener("pointercancel", () => {
-              if (!isMobileDevice()) return;
-              hidePresetTooltips();
-            });
+            }
+            buttonElement.addEventListener("pointerup", hideOnTouchEnd);
+            buttonElement.addEventListener("pointercancel", hideOnTouchEnd);
           }
 
           bindPresetTooltipTouch(dom.presetEarth, "earth");
