@@ -1390,9 +1390,7 @@
         }
 
         function resetAppState() {
-          const noteDismissed = state.ui.defaultMassNoteDismissed;
           const fresh = createDefaultState();
-          fresh.ui.defaultMassNoteDismissed = noteDismissed;
           state.massPercent = fresh.massPercent;
           state.particle = fresh.particle;
           state.visibility = fresh.visibility;
