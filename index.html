@@ -185,10 +185,29 @@
         color: #d4e6ff;
         font-size: 11px;
         line-height: 1.32;
+        opacity: 1;
+        max-height: 120px;
+        overflow: hidden;
+        transform: translateY(0);
+        transition:
+          opacity 260ms ease,
+          max-height 260ms ease,
+          margin-top 260ms ease,
+          padding-top 260ms ease,
+          padding-bottom 260ms ease,
+          transform 260ms ease,
+          border-color 260ms ease;
       }
 
       .default-mass-note.hidden {
-        display: none;
+        opacity: 0;
+        max-height: 0;
+        margin-top: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-color: transparent;
+        transform: translateY(-4px);
+        pointer-events: none;
       }
 
       .button-row {
@@ -566,7 +585,8 @@
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .preset-tooltip {
+        .preset-tooltip,
+        .default-mass-note {
           transition: none;
         }
       }
@@ -943,6 +963,7 @@
             },
             ui: {
               panelsVisible: !isMobileDevice(),
+              defaultMassNoteDismissed: false,
             },
             cache: {
               systemMassPercent: NaN,
@@ -1277,7 +1298,12 @@
         }
 
         function setMassPercent(value) {
-          state.massPercent = clamp(value, PCT_MIN, PCT_MAX);
+          const nextMassPercent = clamp(value, PCT_MIN, PCT_MAX);
+          const massChanged = Math.abs(nextMassPercent - state.massPercent) > 1e-9;
+          state.massPercent = nextMassPercent;
+          if (massChanged && !state.ui.defaultMassNoteDismissed) {
+            state.ui.defaultMassNoteDismissed = true;
+          }
           state.cache.systemMassPercent = NaN;
           syncUiFromState();
           markActive(true);
@@ -1364,7 +1390,9 @@
         }
 
         function resetAppState() {
+          const noteDismissed = state.ui.defaultMassNoteDismissed;
           const fresh = createDefaultState();
+          fresh.ui.defaultMassNoteDismissed = noteDismissed;
           state.massPercent = fresh.massPercent;
           state.particle = fresh.particle;
           state.visibility = fresh.visibility;
@@ -1379,9 +1407,15 @@
         function syncUiFromState() {
           dom.massSlider.value = normFromValue(state.massPercent).toFixed(4);
           dom.massValue.textContent = formatNumber(state.massPercent, 7) + "%";
-          const isDefaultMass =
-            Math.abs(state.massPercent - DEFAULT_MASS_PERCENT) <= 1e-6;
-          dom.defaultMassNote.classList.toggle("hidden", !isDefaultMass);
+          const noteHidden = state.ui.defaultMassNoteDismissed;
+          dom.defaultMassNote.classList.toggle(
+            "hidden",
+            noteHidden,
+          );
+          dom.defaultMassNote.setAttribute(
+            "aria-hidden",
+            String(noteHidden),
+          );
 
           for (const [key, element] of Object.entries(dom.toggles)) {
             element.checked = state.visibility[key];
