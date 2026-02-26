@@ -197,6 +197,61 @@
         gap: 8px;
       }
 
+      .preset-item {
+        position: relative;
+      }
+
+      .preset-item > button {
+        width: 100%;
+      }
+
+      .preset-tooltip {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: calc(100% + 9px);
+        width: auto;
+        margin: 0;
+        padding: 7px 8px;
+        border: 1px solid rgba(112, 147, 191, 0.68);
+        border-radius: 8px;
+        background: rgba(15, 31, 50, 0.94);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+        color: #d8e7fc;
+        font-size: 10.5px;
+        line-height: 1.32;
+        text-align: left;
+        overflow-wrap: anywhere;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(6px);
+        transition:
+          opacity 140ms ease,
+          transform 140ms ease,
+          visibility 140ms ease;
+        z-index: 6;
+      }
+
+      .preset-tooltip::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 6px 5px 0;
+        border-style: solid;
+        border-color: rgba(15, 31, 50, 0.94) transparent transparent;
+      }
+
+      .preset-item:hover .preset-tooltip,
+      .preset-item > button:focus-visible + .preset-tooltip,
+      .preset-item.tooltip-visible .preset-tooltip {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+      }
+
       button {
         min-height: 40px;
         border: 1px solid rgba(109, 141, 180, 0.7);
@@ -506,6 +561,12 @@
           margin-top: 0;
         }
       }
+
+      @media (prefers-reduced-motion: reduce) {
+        .preset-tooltip {
+          transition: none;
+        }
+      }
     </style>
   </head>
   <body>
@@ -550,8 +611,34 @@
           </div>
 
           <div class="control-group button-row">
-            <button id="preset-earth" type="button">Earth</button>
-            <button id="preset-jupiter" type="button">Jupiter</button>
+            <div class="preset-item" id="preset-earth-item">
+              <button
+                id="preset-earth"
+                type="button"
+                aria-describedby="preset-earth-tooltip"
+              >
+                Earth
+              </button>
+              <p class="preset-tooltip" id="preset-earth-tooltip" role="tooltip">
+                Mass preset only: Earth-like secondary mass.
+              </p>
+            </div>
+            <div class="preset-item" id="preset-jupiter-item">
+              <button
+                id="preset-jupiter"
+                type="button"
+                aria-describedby="preset-jupiter-tooltip"
+              >
+                Jupiter
+              </button>
+              <p
+                class="preset-tooltip"
+                id="preset-jupiter-tooltip"
+                role="tooltip"
+              >
+                Mass preset only: Jupiter-like secondary mass.
+              </p>
+            </div>
           </div>
 
           <div class="control-group secondary-row">
@@ -731,6 +818,7 @@
         const SCALE_FACTOR = 0.34;
         const ACTIVE_WINDOW_MS = 900;
         const IDLE_FPS = 8;
+        const PRESET_TOOLTIP_HIDE_MS = 2400;
         const NEAR_BODY_WARN_DIST = 0.05;
         const LPOINT_RESIDUAL_TOL = 1e-8;
         const BALANCE_NEAR_THRESHOLD = 1e-3;
@@ -747,6 +835,7 @@
           "(max-width: 980px) and (hover: none) and (pointer: coarse)";
 
         let activePointerId = null;
+        let presetTooltipTimerId = null;
 
         const PALETTE = {
           bgTop: "#060d16",
@@ -783,6 +872,10 @@
           defaultMassNote: document.getElementById("default-mass-note"),
           presetEarth: document.getElementById("preset-earth"),
           presetJupiter: document.getElementById("preset-jupiter"),
+          presetItems: {
+            earth: document.getElementById("preset-earth-item"),
+            jupiter: document.getElementById("preset-jupiter-item"),
+          },
           resetButton: document.getElementById("reset-button"),
           lockButton: document.getElementById("lock-button"),
           diagnostics: {
@@ -1832,22 +1925,68 @@
           markActive(true);
         }
 
+        function hidePresetTooltips() {
+          if (presetTooltipTimerId !== null) {
+            window.clearTimeout(presetTooltipTimerId);
+            presetTooltipTimerId = null;
+          }
+
+          for (const element of Object.values(dom.presetItems)) {
+            if (!element) continue;
+            element.classList.remove("tooltip-visible");
+          }
+        }
+
+        function showPresetTooltip(key) {
+          const targetElement = dom.presetItems[key];
+          if (!targetElement) return;
+
+          hidePresetTooltips();
+          targetElement.classList.add("tooltip-visible");
+          presetTooltipTimerId = window.setTimeout(() => {
+            targetElement.classList.remove("tooltip-visible");
+            presetTooltipTimerId = null;
+          }, PRESET_TOOLTIP_HIDE_MS);
+        }
+
+        function dismissPresetTooltipsIfOutside(event) {
+          if (!isMobileDevice()) return;
+          if (!(event.target instanceof Element)) return;
+          if (event.target.closest(".preset-item")) return;
+          hidePresetTooltips();
+        }
+
         function bindUiEvents() {
           dom.massSlider.addEventListener("input", () => {
             const normalized = Number(dom.massSlider.value);
             setMassPercent(valueFromNorm(normalized));
           });
 
-          dom.presetEarth.addEventListener("click", () =>
-            setMassPercent(EARTH_PRESET),
-          );
-          dom.presetJupiter.addEventListener("click", () =>
-            setMassPercent(JUPITER_PRESET),
-          );
+          dom.presetEarth.addEventListener("click", () => {
+            setMassPercent(EARTH_PRESET);
+            if (isMobileDevice()) {
+              showPresetTooltip("earth");
+            }
+          });
+          dom.presetJupiter.addEventListener("click", () => {
+            setMassPercent(JUPITER_PRESET);
+            if (isMobileDevice()) {
+              showPresetTooltip("jupiter");
+            }
+          });
           dom.resetButton.addEventListener("click", () => resetAppState());
           dom.lockButton.addEventListener("click", () => toggleLock());
           dom.panelToggle.addEventListener("click", () =>
             setPanelsVisible(!state.ui.panelsVisible),
+          );
+
+          const outsideDismissEvent = window.PointerEvent
+            ? "pointerdown"
+            : "click";
+          document.addEventListener(
+            outsideDismissEvent,
+            dismissPresetTooltipsIfOutside,
+            { passive: true },
           );
 
           for (const [key, element] of Object.entries(dom.toggles)) {
@@ -1869,6 +2008,10 @@
 
           window.addEventListener("resize", resizeCanvas, { passive: true });
           window.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+              hidePresetTooltips();
+            }
+
             if (isSpaceHotkey(event)) {
               if (!event.repeat) {
                 toggleLock();
